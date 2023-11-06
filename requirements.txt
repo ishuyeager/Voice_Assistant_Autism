@@ -1,0 +1,8 @@
+streamlit
+streamlit-bokeh-events==0.1.2
+replicate
+bokeh==2.4.3
+pydub
+simpleaudio
+requests
+python-dotenv
