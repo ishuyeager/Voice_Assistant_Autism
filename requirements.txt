@@ -2,8 +2,6 @@ streamlit
 streamlit-bokeh-events
 replicate
 bokeh
-pydub
-simpleaudio
 requests
 python-dotenv
 gTTS
