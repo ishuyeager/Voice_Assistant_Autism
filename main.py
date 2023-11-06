@@ -5,7 +5,7 @@ from streamlit_bokeh_events import streamlit_bokeh_events
 from io import BytesIO
 import replicate
 import os
-import text_to_speech
+from gtts import gTTS
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -108,9 +108,9 @@ if result:
                 st.write("**ChatBot:**")
                 st.write(response)
                 st.session_state.input['text'] = ''
-                audio_path=text_to_speech.run_tts_and_play(response)
-                st.audio(audio_path)
-
+                tts = gTTS(response, lang='en', tld='com')
+                tts.write_to_fp(sound)
+                st.audio(sound)
                 # Append the conversation
                 st.session_state.conversation.append({"role": "User", "content": input})
                 st.session_state.conversation.append({"role": "Assistant", "content": response})
@@ -123,4 +123,3 @@ for message in st.session_state.conversation:
 # Clear Conversation
 if st.button('Clear Conversation'):
     st.session_state.conversation = []
-
