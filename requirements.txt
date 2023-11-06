@@ -1,9 +1,9 @@
 streamlit
-streamlit-bokeh-events==0.1.2
+streamlit-bokeh-events
 replicate
-bokeh==2.4.3
+bokeh
 pydub
 simpleaudio
 requests
 python-dotenv
-gTTS==2.3.1
+gTTS
