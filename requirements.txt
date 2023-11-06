@@ -6,3 +6,4 @@ pydub
 simpleaudio
 requests
 python-dotenv
+gTTS==2.3.1
