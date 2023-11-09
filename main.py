@@ -5,8 +5,11 @@ from streamlit_bokeh_events import streamlit_bokeh_events
 from io import BytesIO
 import replicate
 import os
-from gtts import gTTS
 from dotenv import load_dotenv
+import base64
+import requests
+import time
+import re
 
 load_dotenv()
 
@@ -15,6 +18,10 @@ os.getenv("REPLICATE_API_TOKEN")
 # Initialize the conversation
 if 'conversation' not in st.session_state:
     st.session_state.conversation = []
+
+# Initialize chat history
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
 
 def cut_off_text(text, prompt):
@@ -35,6 +42,39 @@ def generate_voice_response(user_input):
                                                  "temperature": 0.1, "max_new_tokens": 500, "repetition_penalty": 1.1})
     final_outputs = cut_off_text(response, '</s>')
     return final_outputs
+
+
+def generate_and_play_audio(text):
+    # Fetch the audio data from Replicate API
+    output = replicate.run(
+        "awerks/neon-tts:139606fe1536f85a9f07d87982400b8140c9a9673733d47913af96738894128f",
+        input={"text": text}
+    )
+
+    # Assuming the output is a string containing the audio file URL
+    audio_url = output
+
+    if audio_url:
+        # Fetch the audio data as bytes
+        response = requests.get(audio_url)
+        audio_data = BytesIO(response.content)
+
+        # Base64 encode the audio data
+        audio_base64 = base64.b64encode(audio_data.read()).decode('utf-8')
+
+        # Embed the audio in the HTML tag with autoplay
+        audio_tag = f'<audio autoplay="true" src="data:audio/wav;base64,{audio_base64}">'
+        st.markdown(audio_tag, unsafe_allow_html=True)
+
+
+def simulate_typing(message_placeholder, assistant_response):
+    full_response = ""
+    for chunk in re.split(r'(\s+)', assistant_response):
+        full_response += chunk + " "
+        time.sleep(0.1)
+
+        # Add a blinking cursor to simulate typing
+        message_placeholder.markdown(full_response)
 
 
 sound = BytesIO()
@@ -81,18 +121,14 @@ result = streamlit_bokeh_events(
     override_height=40,
     debounce_time=0)
 
-tr = st.empty()
-
+# Initialize user input in session state
 if 'input' not in st.session_state:
     st.session_state.input = {'text': '', 'session': 0}
-
-tr.text_area("**Your input**", value=st.session_state.input['text'])
 
 if result:
     if "GET_TEXT" in result:
         if result.get("GET_TEXT") != '' and result.get("GET_TEXT") != st.session_state.input['session']:
             st.session_state.input['text'] = result.get("GET_TEXT")
-            tr.text_area("**Your input**", value=st.session_state.input['text'])
             st.session_state.input['session'] = result.get("GET_TEXT")
 
     if "GET_ONREC" in result:
@@ -103,23 +139,30 @@ if result:
             placeholder.image("mic.gif")
         elif result.get("GET_ONREC") == 'stop':
             if st.session_state.input['text'] != '':
-                input = st.session_state.input['text']
-                response = generate_voice_response(input)
+                input_text = st.session_state.input['text']
+                with st.chat_message("user"):
+                    user_message_placeholder = st.empty()
+                    simulate_typing(user_message_placeholder, input_text)
+
+                response = generate_voice_response(input_text)
                 st.write("**ChatBot:**")
-                st.write(response)
-                st.session_state.input['text'] = ''
-                tts = gTTS(response, lang='en', tld='com')
-                tts.write_to_fp(sound)
-                st.audio(sound)
-                # Append the conversation
-                st.session_state.conversation.append({"role": "User", "content": input})
-                st.session_state.conversation.append({"role": "Assistant", "content": response})
+                with st.spinner("Patience..."):
+                    generate_and_play_audio(response)
+
+                # Simulate typing the response
+                with st.chat_message("assistant"):
+                    message_placeholder = st.empty()
+                    simulate_typing(message_placeholder, response)
+
+                # Add both user and assistant responses to chat history
+                st.session_state.messages.append({"role": "user", "content": input_text})
+                st.session_state.messages.append({"role": "assistant", "content": response})
+
 
 # Display the conversation
 st.write("**Conversation**")
-for message in st.session_state.conversation:
-    st.write(f"{message['role']}: {message['content']}")
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
 
-# Clear Conversation
-if st.button('Clear Conversation'):
-    st.session_state.conversation = []
+
